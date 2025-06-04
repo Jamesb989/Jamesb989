@@ -1,0 +1,27 @@
+name: Refresh AI-UA signatures
+
+on:
+  schedule:          # every night 02:30 UTC
+    - cron: '30 2 * * *'
+  workflow_dispatch: # manual “Run workflow” button
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest list
+        run: |
+          curl -s https://momenticmarketing.com/api/ai-ua-list \
+            > signatures/llm.json
+
+      - name: Commit & push if changed
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: github-actions
+          author_email: github-actions@users.noreply.github.com
+          message: 'chore: nightly UA-signature refresh'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
