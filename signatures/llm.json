@@ -1,7 +1,0 @@
-{
-  "chatgpt_user": { "family": "ChatGPT",  "regex": "ChatGPT-User" },
-  "gptbot":       { "family": "GPTBot",   "regex": "GPTBot" },
-  "perplexity":   { "family": "Perplexity","regex": "Perplexity(Bot|-User)" },
-  "claude":       { "family": "Claude",   "regex": "ClaudeBot" },
-  "grok":         { "family": "Grok",     "regex": "GrokCrawler|Grok-User" }
-}
