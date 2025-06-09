@@ -1,44 +1,62 @@
 // src/middleware.ts
 
-import sigs from './signatures/llm.json';
-import { NextResponse, type NextRequest } from 'next/server';
+console.log("🛠️  LLM middleware LOADED");
 
-export const config = {
-  matcher: '/:path*',
-};
+import { NextResponse, type NextRequest } from "next/server";
+import sigs from "./signatures/llm";
+// Extend NextRequest to include the runtime `ip` property
+interface NextRequestWithIP extends NextRequest {
+  ip?: string;
+}
 
-export async function middleware(req: NextRequest) {
-  const ua = req.headers.get('user-agent') ?? '';
-  console.log('🔍 [middleware] UA:', ua);
+export const config = { matcher: "/:path*" };
 
-  // Find the first signature whose regex matches this User-Agent
-  const sig = Object.values(sigs).find((s) =>
-    new RegExp(s.regex, 'i').test(ua)
+async function sha256(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text + (process.env.SALT ?? ""))
   );
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
-  if (sig) {
-    console.log(`🔔 [middleware] Detected LLM = ${sig.family}, posting to /api/log-bot`);
+export async function middleware(rawReq: NextRequest) {
+  const req = rawReq as NextRequestWithIP;
+  const ua = req.headers.get("user-agent") ?? "";
+  const ip =
+    req.headers.get("x-forwarded-for") ??
+    req.ip ??
+    "";
+  const path = req.nextUrl.pathname;
 
-    // Build an absolute URL for the API route without using new URL()
-    const endpointPath = process.env.LOG_ENDPOINT ?? '/api/log-bot';
-    const apiUrl = `${req.nextUrl.origin}${endpointPath}`;
+  // Debug: log incoming UA
+  console.log("🔍 incoming UA:", ua);
 
-    await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        ts: Date.now(),
-        siteId: process.env.NEXT_PUBLIC_SITE_ID,
-        llmFamily: sig.family,
-        path: req.nextUrl.pathname,
-        ip: req.headers.get('x-forwarded-for') ?? '',
-      }),
-      keepalive: true,
-    });
+  for (const { family, regex } of Object.values(
+    sigs as Record<string, { family: string; regex: string }>
+  )) {
+    const re = new RegExp(regex, "i");
+    // Debug: test each pattern
+    console.log(`… testing against [${family}]:`, regex, "→", re.test(ua));
+    if (re.test(ua)) {
+      console.log("✅ matched:", family);
+      fetch(`${req.nextUrl.origin}/api/log-bot`, {
+        method: "POST",
+        keepalive: true,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ts: Date.now(),
+          siteId: process.env.NEXT_PUBLIC_SITE_ID,
+          llmFamily: family,
+          path,
+          ipHash: await sha256(ip),
+        }),
+      }).catch(() => {});
+      console.log("🤖 detected:", family, "→", path);
+      break;
+    }
   }
 
   return NextResponse.next();
 }
-
-
-

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: true,
+  // (no turbo or experimental.turbo here)
 };
 
 export default nextConfig;
+
