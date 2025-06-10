@@ -1,7 +1,7 @@
 // src/app/api/log-bot/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { Kafka, Partitioners } from "kafkajs";
+import { Kafka } from "kafkajs";
 
 const kafka = new Kafka({
   clientId: "llm-analytics",
@@ -16,8 +16,7 @@ const kafka = new Kafka({
   },
 });
 
-// Now actually use Partitioners.LegacyPartitioner
-const producer = kafka.producer({ createPartitioner: Partitioners.LegacyPartitioner });
+const producer = kafka.producer();
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,6 +53,7 @@ export async function GET() {
     { status: 200 }
   );
 }
+
 
 
 
