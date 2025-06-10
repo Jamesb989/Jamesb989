@@ -1,7 +1,8 @@
-// src/app/api/log-bot/route.ts
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* src/app/api/log-bot/route.ts */
 
 import { NextRequest, NextResponse } from "next/server";
-import { Kafka } from "kafkajs";  // ← Removed Partitioners here
+import { Kafka } from "kafkajs";
 
 const kafka = new Kafka({
   clientId: "llm-analytics",
