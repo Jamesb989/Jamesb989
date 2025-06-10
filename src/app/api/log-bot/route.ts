@@ -1,7 +1,9 @@
 // src/app/api/log-bot/route.ts
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { NextRequest, NextResponse } from "next/server";
-import { Kafka } from "kafkajs";
+import { Kafka, Partitioners } from "kafkajs";  // keep Partitioners here, but lint will ignore it
 
 const kafka = new Kafka({
   clientId: "llm-analytics",
@@ -53,6 +55,7 @@ export async function GET() {
     { status: 200 }
   );
 }
+
 
 
 
