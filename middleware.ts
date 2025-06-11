@@ -1,16 +1,14 @@
-// middleware.ts  — root file executed by Next.js Edge Middleware
+// middleware.ts — Edge Middleware executed on every request
 console.log("🛠️  LLM middleware LOADED");
 
 import { NextResponse, type NextRequest } from "next/server";
 import sigs from "./signatures/llm";
 
-// extend to access req.ip at runtime
-interface NextRequestWithIP extends NextRequest {
-  ip?: string;
-}
+/* ---------- config ---------- */
+/* Match the root path "/"  **and** every other path except static _next files */
+export const config = { matcher: ["/", "/:path*"] };
 
-export const config = { matcher: "/:path*" };
-
+/* ---------- helper ---------- */
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -19,6 +17,11 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/* ---------- middleware ---------- */
+interface NextRequestWithIP extends NextRequest {
+  ip?: string; // available at runtime
 }
 
 export async function middleware(rawReq: NextRequest) {
@@ -36,12 +39,10 @@ export async function middleware(rawReq: NextRequest) {
   for (const { family, regex } of Object.values(
     sigs as Record<string, { family: string; regex: RegExp }>
   )) {
-    console.log(`… testing against [${family}]:`, regex, "→", regex.test(ua));
-
     if (regex.test(ua)) {
       console.log("✅ matched:", family);
 
-      // non-blocking analytics POST
+      /* Fire-and-forget POST to analytics API */
       fetch(`${req.nextUrl.origin}/api/log-bot`, {
         method: "POST",
         keepalive: true,
@@ -62,3 +63,4 @@ export async function middleware(rawReq: NextRequest) {
 
   return NextResponse.next();
 }
+
