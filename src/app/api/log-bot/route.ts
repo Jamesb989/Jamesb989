@@ -7,8 +7,8 @@ export async function POST(request: NextRequest) {
   // Log ALL effective env vars for debug
   console.log("KAFKA_BROKER:", process.env.KAFKA_BROKER);
   console.log("KAFKA_TOPIC:", process.env.KAFKA_TOPIC);
-  console.log("KAFKA_USERNAME:", process.env.KAFKA_USERNAME);
-  console.log("KAFKA_PASSWORD present:", !!process.env.KAFKA_PASSWORD);
+  console.log("KAFKA_USER:", process.env.KAFKA_USERNAME);
+  console.log("KAFKA_PASS present:", !!process.env.KAFKA_PASSWORD);
 
   // Defensive: check required envs
   if (
