@@ -4,11 +4,8 @@ console.log("🛠️  LLM middleware LOADED");
 import { NextResponse, type NextRequest } from "next/server";
 import sigs from "./signatures/llm";
 
-/* ---------- config ---------- */
-/* Match the root path "/"  **and** every other path except static _next files */
 export const config = { matcher: ["/", "/:path*"] };
 
-/* ---------- helper ---------- */
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -19,14 +16,12 @@ async function sha256(text: string): Promise<string> {
     .join("");
 }
 
-/* ---------- middleware ---------- */
 interface NextRequestWithIP extends NextRequest {
-  ip?: string; // available at runtime
+  ip?: string;
 }
 
 export async function middleware(rawReq: NextRequest) {
   const req = rawReq as NextRequestWithIP;
-
   const ua   = req.headers.get("user-agent") ?? "";
   const ip   =
     req.headers.get("x-forwarded-for") ??
@@ -34,31 +29,43 @@ export async function middleware(rawReq: NextRequest) {
     "";
   const path = req.nextUrl.pathname;
 
-  console.log("🔍 incoming UA:", ua);
+  console.log("🔍 incoming UA:", ua, "| PATH:", path);
 
+  let matched = false;
   for (const { family, regex } of Object.values(
     sigs as Record<string, { family: string; regex: RegExp }>
   )) {
+    console.log(`🔎 Testing regex for ${family}:`, regex);
     if (regex.test(ua)) {
-      console.log("✅ matched:", family);
+      matched = true;
+      console.log("✅ matched:", family, "| UA:", ua, "| PATH:", path);
 
-      /* Fire-and-forget POST to analytics API */
+      const payload = {
+        ts: Date.now(),
+        siteId: process.env.NEXT_PUBLIC_SITE_ID,
+        llmFamily: family,
+        path,
+        ipHash: await sha256(ip),
+        userAgent: ua,
+      };
+
+      // POST analytics
       fetch(`${req.nextUrl.origin}/api/log-bot`, {
         method: "POST",
         keepalive: true,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ts: Date.now(),
-          siteId: process.env.NEXT_PUBLIC_SITE_ID,
-          llmFamily: family,
-          path,
-          ipHash: await sha256(ip),
-        }),
-      }).catch(() => {});
+        body: JSON.stringify(payload),
+      })
+        .then(r => console.log("📬 POST status:", r.status))
+        .catch(e => console.log("❌ POST error:", e));
 
       console.log("🤖 detected:", family, "→", path);
       break;
     }
+  }
+
+  if (!matched) {
+    console.log("🚫 No LLM UA match for:", ua, "| PATH:", path);
   }
 
   return NextResponse.next();

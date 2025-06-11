@@ -7,12 +7,13 @@ export default {
   },
   Claude: {
     family: "Claude",
-    // Claude, ClaudeBot, Claude/2.1 …
+    // Matches Claude, ClaudeBot, Claude/2.1, etc.
     regex: /Claude(?:Bot)?/i,
   },
   Grok: {
     family: "Grok",
-    regex: /Grok/i,
+    // Matches “Grok”, “GrokAI”, “GrokBot”, “Grok/1.0”, etc.
+    regex: /Grok(?:AI|Bot)?/i,
   },
   Perplexity: {
     family: "Perplexity",
@@ -21,8 +22,21 @@ export default {
   },
   BingAI: {
     family: "BingAI",
-    // Covers BingPreview and possible “BingAI”
-    regex: /BingPreview|BingAI|Bingbot/i,
+    // Covers BingPreview, BingAI, Bingbot, and MS bots
+    regex: /BingPreview|BingAI|Bingbot|MS Search|msnbot/i,
+  },
+  Gemini: {
+    family: "Gemini",
+    // Covers Google Gemini and related Google-Extended crawlers
+    regex: /Gemini|Google-Extended|Google-LLM/i,
+  },
+  Anthropic: {
+    family: "Anthropic",
+    regex: /Anthropic/i,
+  },
+  GoogleAI: {
+    family: "GoogleAI",
+    regex: /Google-LLM|GoogleAI|GoogleBot/i,
   },
   GenericAI: {
     family: "GenericAI",
@@ -30,6 +44,7 @@ export default {
     regex: /\b(?:AI|Bot)\b/i,
   },
 } satisfies Record<string, { family: string; regex: RegExp }>;
+
 
 
 
