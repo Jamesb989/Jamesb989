@@ -7,8 +7,8 @@ export async function POST(request: NextRequest) {
   // Log ALL effective env vars for debug
   console.log("KAFKA_BROKER:", process.env.KAFKA_BROKER);
   console.log("KAFKA_TOPIC:", process.env.KAFKA_TOPIC);
-  console.log("KAFKA_USER:", process.env.KAFKA_USERNAME);
-  console.log("KAFKA_PASS present:", !!process.env.KAFKA_PASSWORD);
+  console.log("KAFKA_USERNAME:", process.env.KAFKA_USERNAME);
+  console.log("KAFKA_PASSWORD present:", !!process.env.KAFKA_PASSWORD);
 
   // Defensive: check required envs
   if (
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     console.log("Producing to Kafka:", {
       brokers: process.env.KAFKA_BROKER,
       topic: process.env.KAFKA_TOPIC,
-      user: process.env.KAFKA_USERNAME,
+      username: process.env.KAFKA_USERNAME,
       message: { ts, siteId, llmFamily, path, ipHash },
     });
 
@@ -72,24 +72,3 @@ export async function GET() {
     { status: 200 }
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
