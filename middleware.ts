@@ -1,17 +1,22 @@
+// middleware.ts (place at your project root)
+
 import { NextResponse, type NextRequest } from "next/server";
 
-export const config = { matcher: ["/", "/:path*"] };
+// This matcher ensures the middleware runs on ALL routes (except _next/static by default)
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
 
 export async function middleware(req: NextRequest) {
   const ua = req.headers.get("user-agent") ?? "";
   const path = req.nextUrl.pathname;
+  const method = req.method;
 
-  // Log every incoming GET (and POST/others) for debugging
-  console.log("INCOMING GET UA:", ua, "| PATH:", path);
+  // Log EVERY incoming request for full monitoring (GET, POST, etc)
+  console.log(`[Edge] INCOMING ${method} | UA: ${ua} | PATH: ${path}`);
 
-  // (Your matching and analytics logic goes here)
+  // (Put any bot detection, analytics, or POST-to-API logic here)
 
   return NextResponse.next();
 }
+
 
 
