@@ -1,32 +1,35 @@
 // src/signatures/llm.ts
-
 export default {
   ChatGPT: {
     family: "ChatGPT",
-    regex: "ChatGPT",
+    // Matches “ChatGPT”, “ChatGPT/1.202”, etc.
+    regex: /ChatGPT/i,
   },
   Claude: {
     family: "Claude",
-    regex: "Claude",
+    // Claude, ClaudeBot, Claude/2.1 …
+    regex: /Claude(?:Bot)?/i,
   },
   Grok: {
     family: "Grok",
-    regex: "Grok",
+    regex: /Grok/i,
   },
   Perplexity: {
     family: "Perplexity",
-    regex: "Perplexity",
+    // Perplexity’s crawler sometimes identifies as pJsonScraper
+    regex: /Perplexity|pJsonScraper/i,
   },
   BingAI: {
     family: "BingAI",
-    regex: "BingAI",
+    // Covers BingPreview and possible “BingAI”
+    regex: /BingPreview|BingAI|Bingbot/i,
   },
-  // Fallback: catch any other AI‐style bot User-Agent
   GenericAI: {
     family: "GenericAI",
-    regex: "(AI|Bot)",
+    // Catch “AI” or “Bot” as separate words, avoid false matches
+    regex: /\b(?:AI|Bot)\b/i,
   },
-} satisfies Record<string, { family: string; regex: string }>;
+} satisfies Record<string, { family: string; regex: RegExp }>;
 
 
 
