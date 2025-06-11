@@ -3,7 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // This matcher ensures the middleware runs on ALL routes (except _next/static by default)
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+export const config = { matcher: ["/:path*"] };
 
 export async function middleware(req: NextRequest) {
   const ua = req.headers.get("user-agent") ?? "";
