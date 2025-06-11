@@ -1,10 +1,10 @@
-// src/middleware.ts
-
+// middleware.ts  — root file executed by Next.js Edge Middleware
 console.log("🛠️  LLM middleware LOADED");
 
 import { NextResponse, type NextRequest } from "next/server";
 import sigs from "./signatures/llm";
-// Extend NextRequest to include the runtime `ip` property
+
+// extend to access req.ip at runtime
 interface NextRequestWithIP extends NextRequest {
   ip?: string;
 }
@@ -23,24 +23,25 @@ async function sha256(text: string): Promise<string> {
 
 export async function middleware(rawReq: NextRequest) {
   const req = rawReq as NextRequestWithIP;
-  const ua = req.headers.get("user-agent") ?? "";
-  const ip =
+
+  const ua   = req.headers.get("user-agent") ?? "";
+  const ip   =
     req.headers.get("x-forwarded-for") ??
     req.ip ??
     "";
   const path = req.nextUrl.pathname;
 
-  // Debug: log incoming UA
   console.log("🔍 incoming UA:", ua);
 
   for (const { family, regex } of Object.values(
-    sigs as Record<string, { family: string; regex: string }>
+    sigs as Record<string, { family: string; regex: RegExp }>
   )) {
-    const re = new RegExp(regex, "i");
-    // Debug: test each pattern
-    console.log(`… testing against [${family}]:`, regex, "→", re.test(ua));
-    if (re.test(ua)) {
+    console.log(`… testing against [${family}]:`, regex, "→", regex.test(ua));
+
+    if (regex.test(ua)) {
       console.log("✅ matched:", family);
+
+      // non-blocking analytics POST
       fetch(`${req.nextUrl.origin}/api/log-bot`, {
         method: "POST",
         keepalive: true,
@@ -53,6 +54,7 @@ export async function middleware(rawReq: NextRequest) {
           ipHash: await sha256(ip),
         }),
       }).catch(() => {});
+
       console.log("🤖 detected:", family, "→", path);
       break;
     }
