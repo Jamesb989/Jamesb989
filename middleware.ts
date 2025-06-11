@@ -29,7 +29,7 @@ export async function middleware(rawReq: NextRequest) {
     "";
   const path = req.nextUrl.pathname;
 
-  console.log("🔍 incoming UA:", ua, "| PATH:", path);
+  console.log("INCOMING UA:", req.headers.get("user-agent"), "| PATH:", req.nextUrl.pathname);
 
   let matched = false;
   for (const { family, regex } of Object.values(
@@ -65,8 +65,8 @@ export async function middleware(rawReq: NextRequest) {
   }
 
   if (!matched) {
-    console.log("🚫 No LLM UA match for:", ua, "| PATH:", path);
-  }
+    console.log("No LLM UA match for:", ua, "| PATH:", path);
+  }  
 
   return NextResponse.next();
 }
