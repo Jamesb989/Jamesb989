@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 export function middleware(request) {
   const ua = request.headers.get("user-agent") || "";
   const url = new URL(request.url);
@@ -10,7 +11,7 @@ export function middleware(request) {
     ts: Date.now()
   };
 
-  // Fire-and-forget log POST to your API route
+  // Fire-and-forget POST to your API route
   fetch(`${url.origin}/api/edge-log`, {
     method: "POST",
     keepalive: true,
@@ -18,6 +19,6 @@ export function middleware(request) {
     body: JSON.stringify(logPayload)
   }).catch(() => {});
 
-  // Continue request as normal
+  // Always continue to the next handler/page
   return NextResponse.next();
 }
