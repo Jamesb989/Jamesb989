@@ -1,5 +1,7 @@
 // src/app/page.tsx
-export const runtime = "edge"; // super-light Edge runtime
+
+export const runtime = "edge";                // Run on Edge runtime
+export const dynamic = "force-dynamic";       // Always run server-side, never static
 
 export default function AnalyticsHome() {
   return (
