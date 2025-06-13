@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 
 const LLM_SIGNATURES = [
   { family: "Claude", regex: /Claude(?:Bot)?/i },
@@ -13,8 +12,10 @@ const LLM_SIGNATURES = [
   { family: "GenericAI", regex: /\b(?:AI|Bot)\b/i },
 ];
 
-function hashIp(ip) {
-  return crypto.createHash("sha256").update(ip).digest("hex");
+async function hashIp(ip) {
+  const data = new TextEncoder().encode(ip);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function middleware(request) {
@@ -36,19 +37,22 @@ export async function middleware(request) {
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (match) {
     console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
+
+    const ipHash = await hashIp(ip);
     const payload = {
       ts: new Date().toISOString().replace("T", " ").split(".")[0],
       siteId: url.hostname,
       llmFamily: match.family,
       path,
-      ipHash: hashIp(ip),
+      ipHash,
       userAgent: ua,
     };
 
-    console.log("[EDGE] 🌍 Posting to /api/log-bot with payload:", payload);
+    const postUrl = `${url.origin}/api/log-bot`;
+    console.log(`[EDGE] 🌍 Posting to ${postUrl} with payload:`, payload);
 
     try {
-      const res = await fetch("/api/log-bot", {
+      const res = await fetch(postUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -68,4 +72,5 @@ export async function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
