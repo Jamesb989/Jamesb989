@@ -2,17 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Kafka, Producer } from 'kafkajs';
 
 declare global {
-  // Re‑use across Lambda invocations
   var __llmKafkaProducer__: Producer | undefined;
 }
 
-/**
- * Return a singleton KafkaJS producer that is already connected.
- */
 async function getProducer(): Promise<Producer> {
-  if (globalThis.__llmKafkaProducer__) {
-    return globalThis.__llmKafkaProducer__;
-  }
+  if (globalThis.__llmKafkaProducer__) return globalThis.__llmKafkaProducer__;
 
   const kafka = new Kafka({
     clientId: 'llm-analytics',
@@ -20,23 +14,21 @@ async function getProducer(): Promise<Producer> {
     ssl: true,
     sasl: {
       mechanism: 'scram-sha-256',
-      username: process.env.KAFKA_USERNAME!,   // non‑null by env‑check below
-      password: process.env.KAFKA_PASSWORD!,
+      username: process.env.KAFKA_USER!,
+      password: process.env.KAFKA_PASS!,
     },
     connectionTimeout: 10_000,
-    requestTimeout:    30_000,
-    // clientDnsLookup removed to satisfy TypeScript  ✨
+    requestTimeout: 30_000,
   });
 
   const producer = kafka.producer();
-  await producer.connect();                   // connect once
-
+  await producer.connect();
   globalThis.__llmKafkaProducer__ = producer;
   return producer;
 }
 
 export async function POST(request: NextRequest) {
-  const missing = ['KAFKA_BROKER', 'KAFKA_TOPIC', 'KAFKA_USERNAME', 'KAFKA_PASSWORD']
+  const missing = ['KAFKA_BROKER', 'KAFKA_TOPIC', 'KAFKA_USER', 'KAFKA_PASS']
     .filter(k => !process.env[k]);
   if (missing.length) {
     return NextResponse.json(
@@ -45,14 +37,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { ts, siteId, llmFamily, path, ipHash } = await request.json();
+  const { ts, siteId, llmFamily, path, ipHash, userAgent } = await request.json();
+
+  let formattedTs: string;
+  try {
+    const parsed = new Date(ts);
+    if (isNaN(parsed.getTime())) throw new Error('Invalid timestamp');
+    formattedTs = parsed.toISOString().replace('T', ' ').split('.')[0]; // YYYY-MM-DD HH:MM:SS
+  } catch {
+    console.warn('[API] Rejected invalid ts:', ts);
+    return NextResponse.json({ status: 'error', message: 'Invalid timestamp' }, { status: 400 });
+  }
+
+  const message = {
+    ts: formattedTs,
+    siteId,
+    llmFamily,
+    path,
+    ipHash,
+    userAgent,
+  };
+
+  console.log('[API] Queuing LLM hit:', message);
 
   try {
     const producer = await getProducer();
     await producer.send({
       topic: process.env.KAFKA_TOPIC!,
-      messages: [{ value: JSON.stringify({ ts, siteId, llmFamily, path, ipHash }) }],
+      messages: [{ value: JSON.stringify(message) }],
     });
+
+    console.log('[API] Message queued to Kafka');
     return NextResponse.json({ status: 'queued' }, { status: 200 });
   } catch (err) {
     console.error('Kafka publish error:', err);
@@ -69,3 +84,4 @@ export async function GET() {
     { status: 200 },
   );
 }
+
