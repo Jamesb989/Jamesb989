@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
+console.log('[MIDDLEWARE] ⚡ Middleware triggered');
+
 const LLM_SIGNATURES = [
   { family: "Claude", regex: /Claude(?:Bot)?/i },
   { family: "ChatGPT", regex: /ChatGPT/i },
@@ -25,8 +27,12 @@ export function middleware(request) {
   const path = url.pathname;
   const ip = request.headers.get("x-forwarded-for") || "";
 
+  console.log(`[MIDDLEWARE] UA: "${ua}" | PATH: "${path}"`);
+
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (match) {
+    console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
+    
     const payload = {
       ts: new Date().toISOString().replace('T', ' ').split('.')[0],
       siteId: url.hostname,
@@ -54,6 +60,7 @@ export function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
 
 
