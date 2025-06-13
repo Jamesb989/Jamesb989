@@ -17,7 +17,7 @@ function hashIp(ip) {
   return crypto.createHash("sha256").update(ip).digest("hex");
 }
 
-export function middleware(request) {
+export async function middleware(request) {
   console.log("[MIDDLEWARE] ⚡ Middleware triggered");
 
   const ua = request.headers.get("user-agent") || "";
@@ -45,24 +45,21 @@ export function middleware(request) {
       userAgent: ua,
     };
 
-    const postUrl = "https://jamesb989-63ax-42oxsz5uo-james-projects-56d3a5d2.vercel.app/api/log-bot";
-    console.log(`[EDGE] 🌍 Posting to ${postUrl}`);
+    console.log("[EDGE] 🌍 Posting to /api/log-bot with payload:", payload);
 
-    fetch(postUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(res => {
-        console.log(`[EDGE] ✅ POST status: ${res.status}`);
-        return res.text();
-      })
-      .then(text => {
-        console.log(`[EDGE] ✅ Response text: ${text}`);
-      })
-      .catch(err => {
-        console.error("[EDGE] ❌ POST failed:", err.message || err);
+    try {
+      const res = await fetch("/api/log-bot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      const text = await res.text();
+      console.log(`[EDGE] ✅ POST status: ${res.status}`);
+      console.log(`[EDGE] ✅ Response text: ${text}`);
+    } catch (err) {
+      console.error("[EDGE] ❌ POST failed:", err.message || err);
+    }
   }
 
   return NextResponse.next();
@@ -71,3 +68,4 @@ export function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
