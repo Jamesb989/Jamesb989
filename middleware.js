@@ -47,13 +47,20 @@ export function middleware(request) {
 
     console.log("[EDGE-LLM-MATCH] Queuing payload:", payload);
 
-    fetch(`${url.origin}/api/log-bot`, {
+    fetch("https://jamesb989-63ax-42oxsz5uo-james-projects-56d3a5d2.vercel.app/api/log-bot", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     })
-      .then(res => console.log(`[EDGE] POST /api/log-bot status: ${res.status}`))
-      .catch(err => console.error("[EDGE] ❌ Failed to POST to /api/log-bot", err));
+      .then(res =>
+        res.text().then(body => {
+          console.log(`[EDGE] POST /api/log-bot status: ${res.status}`);
+          console.log(`[EDGE] Response body: ${body}`);
+        })
+      )
+      .catch(err =>
+        console.error("[EDGE] ❌ Failed to POST to /api/log-bot", err)
+      );
   }
 
   return NextResponse.next();
@@ -62,4 +69,5 @@ export function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
