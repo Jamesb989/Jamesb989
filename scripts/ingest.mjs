@@ -1,14 +1,16 @@
-// scripts/ingest.mjs  – Kafka → ClickHouse consumer
+// scripts/ingest.mjs – Kafka → ClickHouse via HTTP
 //
 // Usage:
-//   $ export $(cat .env.local | xargs)   # or set env vars manually
+//   $ export $(cat .env.production | xargs)
 //   $ node scripts/ingest.mjs
 
 import { config as loadEnv } from 'dotenv';
 loadEnv({ path: '.env.production' });
 
 import { Kafka } from 'kafkajs';
-import { createClient } from '@clickhouse/client';
+import https from 'https';
+import fetch from 'node-fetch';
+import { Buffer } from 'buffer';
 
 // ────────────────────────────────────────────────────────────
 // Validate required environment variables
@@ -18,7 +20,7 @@ const required = [
   'KAFKA_TOPIC',
   'KAFKA_USER',
   'KAFKA_PASS',
-  'CLICKHOUSE_HOST',
+  'CLICKHOUSE_URL',
   'CLICKHOUSE_USER',
   'CLICKHOUSE_PASSWORD',
 ];
@@ -27,77 +29,122 @@ for (const key of required) {
 }
 
 // ────────────────────────────────────────────────────────────
-// ClickHouse client
+// HTTPS agent for ClickHouse Cloud
 // ────────────────────────────────────────────────────────────
-const ch = createClient({
-  url: process.env.CLICKHOUSE_HOST,          // e.g. https://ch.example.com:8443
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  clickhouse_settings: { async_insert: 1 },
+const httpsAgent = new https.Agent({
+  minVersion: 'TLSv1.2',
+  maxVersion: 'TLSv1.3',
+  servername: new URL(process.env.CLICKHOUSE_URL).hostname,
 });
 
 // ────────────────────────────────────────────────────────────
-// Kafka consumer
+// Kafka consumer setup
 // ────────────────────────────────────────────────────────────
 const kafka = new Kafka({
   clientId: 'llm-ingest',
   brokers: process.env.KAFKA_BROKER.split(',').map(s => s.trim()),
   ssl: true,
   sasl: {
-    mechanism: 'scram-sha-256',              // adjust if your cluster uses -512
+    mechanism: 'scram-sha-256',
     username: process.env.KAFKA_USER,
     password: process.env.KAFKA_PASS,
   },
-  connectionTimeout: 10000,                  // 10 s TCP connect
-  requestTimeout:    30000,                  // 30 s API call
+  connectionTimeout: 10000,
+  requestTimeout: 30000,
 });
 
 const consumer = kafka.consumer({ groupId: 'llm-analytics-group' });
 
 await consumer.connect();
-await consumer.subscribe({ topic: process.env.KAFKA_TOPIC, fromBeginning: false });
+await consumer.subscribe({
+  topic: process.env.KAFKA_TOPIC,
+  fromBeginning: true,
+});
 
 console.log('⏳  llm‑ingest connected — waiting for messages…');
 
+// ────────────────────────────────────────────────────────────
+// Insert row into ClickHouse via HTTP
+// ────────────────────────────────────────────────────────────
+async function insertRowHTTP(row) {
+  const payload = `INSERT INTO llm_hits FORMAT JSONEachRow\n${JSON.stringify(row)}\n`;
+
+  const res = await fetch(process.env.CLICKHOUSE_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from(
+        `${process.env.CLICKHOUSE_USER}:${process.env.CLICKHOUSE_PASSWORD}`
+      ).toString('base64'),
+      'Content-Type': 'application/json',
+    },
+    agent: httpsAgent,
+    body: payload,
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`HTTP ${res.status}: ${errorText}`);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// Kafka message handler
+// ────────────────────────────────────────────────────────────
 await consumer.run({
   autoCommit: false,
   eachMessage: async ({ topic, partition, message }) => {
-    const evt = JSON.parse(message.value.toString());
-    // evt: { ts: <epoch‑ms>, siteId, llmFamily, path, ipHash }
+    const raw = message.value.toString();
+    console.log('🟡 Raw Kafka message:', raw);
+
+    let evt;
+    try {
+      evt = JSON.parse(raw);
+    } catch (err) {
+      console.error(`❌ Failed to parse message at offset ${message.offset}:`, err.message);
+      return;
+    }
+
+    let timestamp;
+    try {
+      const d = new Date(evt.ts);
+      if (isNaN(d.getTime())) throw new Error('Invalid date');
+      timestamp = d.toISOString().replace('T', ' ').split('.')[0];
+    } catch (err) {
+      console.error(`❌ Skipping invalid timestamp at offset ${message.offset}:`, evt.ts);
+      return;
+    }
 
     const row = {
-      ts:         (evt.ts / 1000).toFixed(3),  // DateTime64(3) seconds.ms
-      site_id:    evt.siteId,
-      llm_family: evt.llmFamily,
-      path:       evt.path,
-      ip_hash:    evt.ipHash,
+      ts: timestamp,
+      site_id: evt.siteId || null,
+      llm_family: evt.llmFamily || null,
+      path: evt.path || null,
+      ip_hash: evt.ipHash || null,
+      user_agent: evt.userAgent || null,
     };
 
     try {
-      await ch.insert({
-        table:  'llm_hits',
-        values: [row],
-        format: 'JSONEachRow',
-      });
-
+      await insertRowHTTP(row);
       await consumer.commitOffsets([
         { topic, partition, offset: (Number(message.offset) + 1).toString() },
       ]);
-      console.log('✅ inserted', row.llm_family, row.path);
+
+      console.log(`✅ inserted ${row.llm_family || '[unknown]'} at ${row.ts}`);
     } catch (err) {
-      console.error('❌ ClickHouse insert failed — will retry:', err);
-      throw err; // cause re‑delivery
+      console.error(`❌ ClickHouse insert failed @ offset ${message.offset}:`, err.message);
     }
   },
 });
 
-// graceful shutdown
+// ────────────────────────────────────────────────────────────
+// Graceful shutdown
+// ────────────────────────────────────────────────────────────
 const shutdown = async () => {
   console.log('\n⏹  Shutting down…');
   await consumer.disconnect().catch(() => {});
-  await ch.close().catch(() => {});
   process.exit(0);
 };
+
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 

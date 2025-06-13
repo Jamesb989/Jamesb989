@@ -1,0 +1,2 @@
+INSERT INTO llm_hits FORMAT JSONEachRow
+{"ts":"1686671234.567","site_id":"localtest","llm_family":"TestBot","path":"/_test","ip_hash":"deadbeef"}

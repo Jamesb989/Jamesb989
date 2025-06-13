@@ -13,12 +13,22 @@
   <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
   <format_schema_path>/var/lib/clickhouse/format_schemas/</format_schema_path>
 
-  <!-- Users section: default user now has an empty password -->
+  <!-- HTTPS server configuration -->
+  <https_port>8443</https_port>
+
+  <openSSL>
+    <server>
+      <certificateFile>/etc/clickhouse-server/server.crt</certificateFile>
+      <privateKeyFile>/etc/clickhouse-server/server.key</privateKeyFile>
+      <!-- Optional: CA cert for mutual TLS -->
+      <!-- <caConfig>/etc/clickhouse-server/ca.pem</caConfig> -->
+    </server>
+  </openSSL>
+
   <users>
     <default>
       <password></password>
       <networks>
-        <!-- Allow HTTP access from anywhere -->
         <ip>::/0</ip>
       </networks>
       <profile>default</profile>
@@ -31,6 +41,7 @@
     </default>
   </profiles>
 </clickhouse>
+
 
 
 
