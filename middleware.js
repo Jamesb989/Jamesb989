@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-// List of detectable LLM signatures
 const LLM_SIGNATURES = [
   { family: "Claude", regex: /Claude(?:Bot)?/i },
   { family: "ChatGPT", regex: /ChatGPT/i },
@@ -19,15 +18,12 @@ function hashIp(ip) {
 }
 
 export function middleware(request) {
+  console.log('[MIDDLEWARE] running for request');
+
   const ua = request.headers.get("user-agent") || "";
   const url = new URL(request.url);
   const path = url.pathname;
   const ip = request.headers.get("x-forwarded-for") || "";
-
-  // Skip internal Next.js assets
-  if (path.startsWith("/_next")) return NextResponse.next();
-
-  console.log(`[EDGE] UA: ${ua} | PATH: ${path} | METHOD: ${request.method}`);
 
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (match) {
@@ -54,5 +50,10 @@ export function middleware(request) {
 
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ['/((?!_next|api|favicon.ico).*)'],
+};
+
 
 
