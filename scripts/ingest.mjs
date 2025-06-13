@@ -5,7 +5,7 @@
 //   $ node scripts/ingest.mjs
 
 import { config as loadEnv } from 'dotenv';
-loadEnv({ path: '.env.local' });
+loadEnv({ path: '.env.production' });
 
 import { Kafka } from 'kafkajs';
 import { createClient } from '@clickhouse/client';
@@ -16,8 +16,8 @@ import { createClient } from '@clickhouse/client';
 const required = [
   'KAFKA_BROKER',
   'KAFKA_TOPIC',
-  'KAFKA_USERNAME',
-  'KAFKA_PASSWORD',
+  'KAFKA_USER',
+  'KAFKA_PASS',
   'CLICKHOUSE_HOST',
   'CLICKHOUSE_USER',
   'CLICKHOUSE_PASSWORD',
@@ -45,8 +45,8 @@ const kafka = new Kafka({
   ssl: true,
   sasl: {
     mechanism: 'scram-sha-256',              // adjust if your cluster uses -512
-    username: process.env.KAFKA_USERNAME,
-    password: process.env.KAFKA_PASSWORD,
+    username: process.env.KAFKA_USER,
+    password: process.env.KAFKA_PASS,
   },
   connectionTimeout: 10000,                  // 10 s TCP connect
   requestTimeout:    30000,                  // 30 s API call
