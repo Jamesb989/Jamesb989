@@ -1,8 +1,8 @@
 // middleware.js
 import { NextResponse } from 'next/server';
 
-export function middleware(request) {
-  console.log('[TEST-MIDDLEWARE] ✅ Middleware was triggered!');
+export function middleware() {
+  console.log('[MIDDLEWARE] ✅ Minimal middleware triggered');
   return NextResponse.next();
 }
 
