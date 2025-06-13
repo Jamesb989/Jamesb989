@@ -27,6 +27,12 @@ export function middleware(request) {
 
   console.log(`[MIDDLEWARE] UA="${ua}" | PATH="${path}"`);
 
+  LLM_SIGNATURES.forEach(sig => {
+    if (sig.regex.test(ua)) {
+      console.log(`[MIDDLEWARE] 🔎 UA matched: ${sig.family} via ${sig.regex}`);
+    }
+  });
+
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (match) {
     console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
@@ -39,18 +45,15 @@ export function middleware(request) {
       userAgent: ua,
     };
 
-    console.log(`[EDGE-LLM-MATCH] Queuing payload: ${JSON.stringify(payload)}`);
+    console.log("[EDGE-LLM-MATCH] Queuing payload:", payload);
 
     fetch(`${url.origin}/api/log-bot`, {
       method: "POST",
-      keepalive: true,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
-    }).then(res => {
-      console.log(`[EDGE] POST /api/log-bot status: ${res.status}`);
-    }).catch(err => {
-      console.error(`[EDGE] ❌ Failed to POST to /api/log-bot`, err);
-    });
+    })
+      .then(res => console.log(`[EDGE] POST /api/log-bot status: ${res.status}`))
+      .catch(err => console.error("[EDGE] ❌ Failed to POST to /api/log-bot", err));
   }
 
   return NextResponse.next();
@@ -59,3 +62,4 @@ export function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
