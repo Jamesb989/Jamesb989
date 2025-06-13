@@ -1,74 +1,71 @@
-// src/app/api/log-bot/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { Kafka, Producer } from 'kafkajs';
 
-import { NextRequest, NextResponse } from "next/server";
-import { Kafka } from "kafkajs";
+declare global {
+  // Re‑use across Lambda invocations
+  var __llmKafkaProducer__: Producer | undefined;
+}
 
-export async function POST(request: NextRequest) {
-  // Log ALL effective env vars for debug
-  console.log("KAFKA_BROKER:", process.env.KAFKA_BROKER);
-  console.log("KAFKA_TOPIC:", process.env.KAFKA_TOPIC);
-  console.log("KAFKA_USERNAME:", process.env.KAFKA_USERNAME);
-  console.log("KAFKA_PASSWORD present:", !!process.env.KAFKA_PASSWORD);
-
-  // Defensive: check required envs
-  if (
-    !process.env.KAFKA_BROKER ||
-    !process.env.KAFKA_TOPIC ||
-    !process.env.KAFKA_USERNAME ||
-    !process.env.KAFKA_PASSWORD
-  ) {
-    return NextResponse.json(
-      { status: "error", message: "Missing Kafka env variables" },
-      { status: 500 }
-    );
+/**
+ * Return a singleton KafkaJS producer that is already connected.
+ */
+async function getProducer(): Promise<Producer> {
+  if (globalThis.__llmKafkaProducer__) {
+    return globalThis.__llmKafkaProducer__;
   }
 
-  // Kafka client config
   const kafka = new Kafka({
-    clientId: "llm-analytics",
-    brokers: process.env.KAFKA_BROKER.split(",").map(b => b.trim()),
+    clientId: 'llm-analytics',
+    brokers: process.env.KAFKA_BROKER!.split(',').map(b => b.trim()),
     ssl: true,
     sasl: {
-      mechanism: "scram-sha-256",
-      username: process.env.KAFKA_USERNAME,
-      password: process.env.KAFKA_PASSWORD,
+      mechanism: 'scram-sha-256',
+      username: process.env.KAFKA_USERNAME!,   // non‑null by env‑check below
+      password: process.env.KAFKA_PASSWORD!,
     },
+    connectionTimeout: 10_000,
+    requestTimeout:    30_000,
+    // clientDnsLookup removed to satisfy TypeScript  ✨
   });
 
   const producer = kafka.producer();
+  await producer.connect();                   // connect once
+
+  globalThis.__llmKafkaProducer__ = producer;
+  return producer;
+}
+
+export async function POST(request: NextRequest) {
+  const missing = ['KAFKA_BROKER', 'KAFKA_TOPIC', 'KAFKA_USERNAME', 'KAFKA_PASSWORD']
+    .filter(k => !process.env[k]);
+  if (missing.length) {
+    return NextResponse.json(
+      { status: 'error', message: `Missing env vars: ${missing.join(',')}` },
+      { status: 500 },
+    );
+  }
+
+  const { ts, siteId, llmFamily, path, ipHash } = await request.json();
 
   try {
-    const { ts, siteId, llmFamily, path, ipHash } = await request.json();
-
-    console.log("Producing to Kafka:", {
-      brokers: process.env.KAFKA_BROKER,
-      topic: process.env.KAFKA_TOPIC,
-      username: process.env.KAFKA_USERNAME,
-      message: { ts, siteId, llmFamily, path, ipHash },
-    });
-
-    await producer.connect();
+    const producer = await getProducer();
     await producer.send({
-      topic: process.env.KAFKA_TOPIC,
-      messages: [
-        { value: JSON.stringify({ ts, siteId, llmFamily, path, ipHash }) },
-      ],
+      topic: process.env.KAFKA_TOPIC!,
+      messages: [{ value: JSON.stringify({ ts, siteId, llmFamily, path, ipHash }) }],
     });
-    await producer.disconnect();
-
-    return NextResponse.json({ status: "queued" }, { status: 200 });
-  } catch (error) {
-    console.error("Kafka publish error:", error);
+    return NextResponse.json({ status: 'queued' }, { status: 200 });
+  } catch (err) {
+    console.error('Kafka publish error:', err);
     return NextResponse.json(
-      { status: "error", message: (error as Error).message },
-      { status: 500 }
+      { status: 'error', message: 'Internal queue failure' },
+      { status: 502 },
     );
   }
 }
 
 export async function GET() {
   return NextResponse.json(
-    { message: "Use POST to queue LLM hits" },
-    { status: 200 }
+    { message: 'Use POST to queue LLM hits' },
+    { status: 200 },
   );
 }

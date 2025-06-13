@@ -1,2 +1,3 @@
-/** @type {import("next").NextConfig} */
-module.exports={eslint:{ignoreDuringBuilds:true}};
+/** Next.js config — ESLint disabled during builds */
+export default { eslint: { ignoreDuringBuilds: true } };
+
