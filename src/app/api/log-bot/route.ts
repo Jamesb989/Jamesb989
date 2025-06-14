@@ -39,18 +39,17 @@ export async function POST(request: NextRequest) {
 
   const { ts, siteId, llmFamily, path, ipHash, userAgent } = await request.json();
 
-  let formattedTs: string;
+  let parsedTs: number;
   try {
-    const parsed = new Date(ts);
-    if (isNaN(parsed.getTime())) throw new Error('Invalid timestamp');
-    formattedTs = parsed.toISOString().replace('T', ' ').split('.')[0]; // YYYY-MM-DD HH:MM:SS
+    parsedTs = typeof ts === 'number' ? ts : Math.floor(new Date(ts).getTime() / 1000);
+    if (isNaN(parsedTs)) throw new Error('Invalid timestamp');
   } catch {
     console.warn('[API] Rejected invalid ts:', ts);
     return NextResponse.json({ status: 'error', message: 'Invalid timestamp' }, { status: 400 });
   }
 
   const message = {
-    ts: formattedTs,
+    ts: parsedTs,
     siteId,
     llmFamily,
     path,
@@ -84,4 +83,3 @@ export async function GET() {
     { status: 200 },
   );
 }
-
