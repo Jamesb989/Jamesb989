@@ -28,11 +28,11 @@ export async function middleware(request) {
 
   console.log(`[MIDDLEWARE] UA="${ua}" | PATH="${path}"`);
 
-  LLM_SIGNATURES.forEach(sig => {
+  for (const sig of LLM_SIGNATURES) {
     if (sig.regex.test(ua)) {
       console.log(`[MIDDLEWARE] 🔎 UA matched: ${sig.family} via ${sig.regex}`);
     }
-  });
+  }
 
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (match) {
@@ -73,6 +73,7 @@ export async function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
 
 
