@@ -39,7 +39,7 @@ export async function middleware(request) {
     console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
 
     const ipHash = await hashIp(ip);
-    const ts = new Date().toISOString().replace("T", " ").split(".")[0];
+    const ts = new Date().toISOString().replace("T", " ").split(".")[0];  // 'YYYY-MM-DD HH:MM:SS'
     const payload = {
       ts,
       siteId: url.hostname,
@@ -73,6 +73,7 @@ export async function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
 
 
