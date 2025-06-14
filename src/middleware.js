@@ -19,44 +19,57 @@ async function hashIp(ip) {
 }
 
 export async function middleware(request) {
-  const ua = request.headers.get("user-agent") || "";
-  const url = new URL(request.url);
-  const path = url.pathname;
-  const ip = request.headers.get("x-forwarded-for") || "";
-
-  const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
-  if (!match) return NextResponse.next();
-
-  const ipHash = await hashIp(ip);
-  const ts = Math.floor(Date.now() / 1000); // UNIX timestamp (in seconds)
-
-  const payload = {
-    ts,
-    siteId: url.hostname,
-    llmFamily: match.family,
-    path,
-    ipHash,
-    userAgent: ua,
-  };
-
-  const postUrl = `${url.origin}/api/log-bot`;
-
   try {
-    await fetch(postUrl, {
+    console.log("[MIDDLEWARE] ⚡ Middleware triggered");
+
+    const ua = request.headers.get("user-agent") || "";
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const ip = request.headers.get("x-forwarded-for") || "";
+
+    console.log(`[MIDDLEWARE] UA="${ua}" | PATH="${path}"`);
+
+    const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
+    if (!match) return NextResponse.next();
+
+    console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
+
+    const ipHash = await hashIp(ip);
+    const ts = Math.floor(Date.now() / 1000); // UNIX timestamp (seconds)
+    const payload = {
+      ts,
+      siteId: url.hostname,
+      llmFamily: match.family,
+      path,
+      ipHash,
+      userAgent: ua,
+    };
+
+    const postUrl = "https://jamesb989-63ax-4tgq63sy4-james-projects-56d3a5d2.vercel.app/api/log-bot";
+
+    console.log(`[EDGE] 🌍 Attempting POST to ${postUrl}`);
+    console.log(`[EDGE] 📤 Payload: ${JSON.stringify(payload)}`);
+
+    const res = await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    console.log(`[EDGE] ✅ POST status: ${res.status}`);
+    const text = await res.text();
+    console.log(`[EDGE] ✅ Response text: ${text}`);
   } catch (err) {
-    console.error("[MIDDLEWARE] ❌ POST to /api/log-bot failed:", err);
+    console.error("[MIDDLEWARE] ❌ Uncaught error in middleware:", err);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next|api|favicon.ico).*)'],
+  matcher: ["/((?!_next|api|favicon.ico).*)"],
 };
+
 
 
 
