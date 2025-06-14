@@ -19,52 +19,36 @@ async function hashIp(ip) {
 }
 
 export async function middleware(request) {
-  console.log("[MIDDLEWARE] ⚡ Middleware triggered");
-
   const ua = request.headers.get("user-agent") || "";
   const url = new URL(request.url);
   const path = url.pathname;
   const ip = request.headers.get("x-forwarded-for") || "";
 
-  console.log(`[MIDDLEWARE] UA="${ua}" | PATH="${path}"`);
-
-  for (const sig of LLM_SIGNATURES) {
-    if (sig.regex.test(ua)) {
-      console.log(`[MIDDLEWARE] 🔎 UA matched: ${sig.family} via ${sig.regex}`);
-    }
-  }
-
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
-  if (match) {
-    console.log(`[MIDDLEWARE] ✅ Detected LLM UA match: ${match.family}`);
+  if (!match) return NextResponse.next();
 
-    const ipHash = await hashIp(ip);
-    const ts = Date.now(); // milliseconds since epoch
-    const payload = {
-      ts,
-      siteId: url.hostname,
-      llmFamily: match.family,
-      path,
-      ipHash,
-      userAgent: ua,
-    };
+  const ipHash = await hashIp(ip);
+  const ts = Math.floor(Date.now() / 1000); // UNIX timestamp (in seconds)
 
-    const postUrl = `${url.origin}/api/log-bot`;
-    console.log(`[EDGE] 🌍 Posting to ${postUrl} with payload:`, payload);
+  const payload = {
+    ts,
+    siteId: url.hostname,
+    llmFamily: match.family,
+    path,
+    ipHash,
+    userAgent: ua,
+  };
 
-    try {
-      const res = await fetch(postUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  const postUrl = `${url.origin}/api/log-bot`;
 
-      const text = await res.text();
-      console.log(`[EDGE] ✅ POST status: ${res.status}`);
-      console.log(`[EDGE] ✅ Response text: ${text}`);
-    } catch (err) {
-      console.error("[EDGE] ❌ POST failed:", err.message || err);
-    }
+  try {
+    await fetch(postUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error("[MIDDLEWARE] ❌ POST to /api/log-bot failed:", err);
   }
 
   return NextResponse.next();
@@ -73,6 +57,7 @@ export async function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
 
 
 
