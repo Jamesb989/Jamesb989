@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const LLM_SIGNATURES = [
+const LLM_SIGNATURES: { family: string; regex: RegExp }[] = [
   { family: "Claude", regex: /Claude(?:Bot)?/i },
   { family: "ChatGPT", regex: /ChatGPT/i },
   { family: "Grok", regex: /Grok/i },
@@ -12,13 +12,13 @@ const LLM_SIGNATURES = [
   { family: "GenericAI", regex: /\b(?:AI|Bot)\b/i },
 ];
 
-async function hashIp(ip) {
+async function hashIp(ip: string): Promise<string> {
   const data = new TextEncoder().encode(ip);
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-export async function middleware(request) {
+export async function middleware(request: Request) {
   const ua = request.headers.get("user-agent") || "";
   const url = new URL(request.url);
   const path = url.pathname;
@@ -42,16 +42,11 @@ export async function middleware(request) {
   const postUrl = 'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/';
 
   try {
-    const response = await fetch(postUrl, {
+    await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[MIDDLEWARE] ❌ Lambda POST failed:", response.status, text);
-    }
   } catch (err) {
     console.error("[MIDDLEWARE] ❌ POST to Lambda proxy failed:", err);
   }
@@ -62,6 +57,9 @@ export async function middleware(request) {
 export const config = {
   matcher: ['/((?!_next|api|favicon.ico).*)'],
 };
+
+
+
 
 
 
