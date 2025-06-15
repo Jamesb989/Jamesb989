@@ -6,7 +6,9 @@
 HOST=${1:-http://localhost:3000}
 
 # Adjust these for your local ClickHouse creds:
-CH_CLI="docker exec clickhouse-local clickhouse-client --user default --password CqP0fqqmYD.2J --query"
+: "${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD not set}"
+# Command prefix for running queries via clickhouse-client in the Docker container
+CH_CLI=(docker exec clickhouse-local clickhouse-client --user default --password "$CLICKHOUSE_PASSWORD" --query)
 
 for UA in "ChatGPT" "Claude/1.0" "BingAI/1.0" "Mozilla/5.0"; do
   echo "→ Testing UA: $UA"
@@ -14,7 +16,7 @@ for UA in "ChatGPT" "Claude/1.0" "BingAI/1.0" "Mozilla/5.0"; do
   RESP=$(curl -s -A "$UA" "$HOST/api/health-check")
   echo "  Response: $RESP"
   # fetch last row
-  LAST=$($CH_CLI "SELECT llm_family, path FROM default.llm_hits ORDER BY ts DESC LIMIT 1;")
+  LAST=$("${CH_CLI[@]}" "SELECT llm_family, path FROM default.llm_hits ORDER BY ts DESC LIMIT 1;")
   echo "  Last CH row: $LAST"
   echo
 done
