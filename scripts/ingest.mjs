@@ -104,9 +104,14 @@ await consumer.run({
       return;
     }
 
+    // evt.ts can be an ISO date string or a numeric Unix timestamp (in seconds)
     let timestamp;
     try {
-      const d = new Date(evt.ts);
+      let ts = evt.ts;
+      if (typeof ts === 'number' || (typeof ts === 'string' && /^\d+$/.test(ts))) {
+        ts = Number(ts) * 1000;
+      }
+      const d = new Date(ts);
       if (isNaN(d.getTime())) throw new Error('Invalid date');
       timestamp = d.toISOString().replace('T', ' ').split('.')[0];
     } catch (err) {
