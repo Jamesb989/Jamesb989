@@ -14,15 +14,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Invalid timestamp' })
   }
 
-  const sql = `
-    INSERT INTO default.llm_hits (ts, site_id, llm_family, path, ip_hash)
-    VALUES ('${parsedTs.toISOString().replace('T', ' ').split('.')[0]}', '${siteId}', '${llmFamily}', '${path}', '${ipHash}')
-  `
+  const row = {
+    ts: parsedTs.toISOString(),
+    site_id: siteId,
+    llm_family: llmFamily,
+    path,
+    ip_hash: ipHash,
+  }
 
   try {
     await axios.post(
       process.env.LAMBDA_PROXY_URL!,
-      { sql },
+      { row },
       {
         headers: {
           'Content-Type': 'application/json'
