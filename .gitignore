@@ -30,6 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# project logs and local artifacts
+clickhouse-server.err.log
+llm-analytics-demo@0.1.0
+recent stamp.pdf
+
 # env files (can opt-in for committing if needed)
 .env*
 
