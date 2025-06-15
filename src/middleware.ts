@@ -1,16 +1,5 @@
 import { NextResponse } from "next/server";
-
-const LLM_SIGNATURES: { family: string; regex: RegExp }[] = [
-  { family: "Claude", regex: /Claude(?:Bot)?/i },
-  { family: "ChatGPT", regex: /ChatGPT/i },
-  { family: "Grok", regex: /Grok/i },
-  { family: "Perplexity", regex: /Perplexity|pJsonScraper/i },
-  { family: "BingAI", regex: /BingPreview|BingAI|Bingbot|MS Search|msnbot/i },
-  { family: "Gemini", regex: /Gemini|Google-Extended|Google-LLM/i },
-  { family: "Anthropic", regex: /Anthropic/i },
-  { family: "GoogleAI", regex: /Google-LLM|GoogleAI|GoogleBot/i },
-  { family: "GenericAI", regex: /\b(?:AI|Bot)\b/i },
-];
+import LLM_SIGNATURES from "../signatures";
 
 async function hashIp(ip: string): Promise<string> {
   const data = new TextEncoder().encode(ip);
