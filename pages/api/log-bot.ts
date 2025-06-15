@@ -7,7 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { ts, siteId, llmFamily, path, ipHash } = req.body
+  const { ts, siteId, llmFamily, path, ipHash, userAgent } = req.body
 
   const parsedTs = typeof ts === 'number' ? new Date(ts * 1000) : new Date(ts)
   if (isNaN(parsedTs.getTime())) {
@@ -15,8 +15,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const sql = `
-    INSERT INTO default.llm_hits (ts, site_id, llm_family, path, ip_hash)
-    VALUES ('${parsedTs.toISOString().replace('T', ' ').split('.')[0]}', '${siteId}', '${llmFamily}', '${path}', '${ipHash}')
+    INSERT INTO default.llm_hits (ts, site_id, llm_family, path, ip_hash, user_agent)
+    VALUES ('${parsedTs.toISOString().replace('T', ' ').split('.')[0]}', '${siteId}', '${llmFamily}', '${path}', '${ipHash}', '${userAgent}')
   `
 
   try {
