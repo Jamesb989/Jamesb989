@@ -15,7 +15,9 @@ const LLM_SIGNATURES: { family: string; regex: RegExp }[] = [
 async function hashIp(ip: string): Promise<string> {
   const data = new TextEncoder().encode(ip);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export async function middleware(request: Request) {
@@ -23,6 +25,8 @@ export async function middleware(request: Request) {
   const url = new URL(request.url);
   const path = url.pathname;
   const ip = request.headers.get("x-forwarded-for") || "";
+
+  console.log("[MIDDLEWARE] 🚨 Triggered:", path, "UA:", ua);
 
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
   if (!match) return NextResponse.next();
@@ -39,29 +43,37 @@ export async function middleware(request: Request) {
     userAgent: ua,
   };
 
-  const postUrl = process.env.LAMBDA_PROXY_URL || 'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/';
+  console.log("[MIDDLEWARE] 📨 Matched LLM:", match.family, "→ sending payload:", payload);
 
-  try {
-    const response = await fetch(postUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+  const postUrl =
+    process.env.LAMBDA_PROXY_URL ||
+    "https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/";
+
+  // Fire-and-forget: don't block edge
+  fetch(postUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+    .then(async (res) => {
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("[MIDDLEWARE] ❌ Lambda POST failed:", res.status, text);
+      } else {
+        console.log("[MIDDLEWARE] ✅ Lambda POST success:", res.status, text);
+      }
+    })
+    .catch((err) => {
+      console.error("[MIDDLEWARE] ❌ Lambda POST error:", err);
     });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[MIDDLEWARE] ❌ POST failed with status", response.status, "→", text);
-    }
-  } catch (err) {
-    console.error("[MIDDLEWARE] ❌ POST to Lambda proxy failed:", err);
-  }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next|api|favicon.ico).*)'],
+  matcher: ["/((?!_next|favicon.ico).*)"],
 };
+
 
 
 
