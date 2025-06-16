@@ -29,7 +29,11 @@ export async function middleware(request: Request) {
   console.log("[MIDDLEWARE] 🚨 Triggered:", path, "UA:", ua);
 
   const match = LLM_SIGNATURES.find(({ regex }) => regex.test(ua));
-  if (!match) return NextResponse.next();
+  if (!match) {
+    const res = NextResponse.next();
+    res.headers.set("x-middleware-check", "executed");
+    return res;
+  }
 
   const ipHash = await hashIp(ip);
   const ts = Math.floor(Date.now() / 1000);
@@ -49,7 +53,6 @@ export async function middleware(request: Request) {
     process.env.LAMBDA_PROXY_URL ||
     "https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/";
 
-  // Fire-and-forget: don't block edge
   fetch(postUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -67,12 +70,16 @@ export async function middleware(request: Request) {
       console.error("[MIDDLEWARE] ❌ Lambda POST error:", err);
     });
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  res.headers.set("x-llm-family", match.family);
+  res.headers.set("x-middleware-check", "executed");
+  return res;
 }
 
 export const config = {
   matcher: ["/((?!_next|favicon.ico).*)"],
 };
+
 
 
 
