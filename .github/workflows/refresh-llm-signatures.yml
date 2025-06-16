@@ -13,8 +13,8 @@ jobs:
 
       - name: Download latest list
         run: |
-          curl -s https://momenticmarketing.com/api/ai-ua-list \
-            > signatures/llm.json
+          curl -sL https://raw.githubusercontent.com/momentic-ai/ua-signatures/main/signatures/llm.json \
+            -o signatures/llm.json
 
       - name: Commit & push if changed
         uses: EndBug/add-and-commit@v9
