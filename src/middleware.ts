@@ -39,7 +39,11 @@ export async function middleware(request: Request) {
     userAgent: ua,
   };
 
-  const postUrl = process.env.LAMBDA_PROXY_URL || 'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/';
+  const postUrl = process.env.LAMBDA_PROXY_URL;
+  if (!postUrl) {
+    console.error("[MIDDLEWARE] Missing LAMBDA_PROXY_URL environment variable");
+    return NextResponse.next();
+  }
 
   try {
     const response = await fetch(postUrl, {
