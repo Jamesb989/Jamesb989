@@ -10,6 +10,9 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    ignores: ["pages/api/log-bot.ts"],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 
