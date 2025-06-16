@@ -31,9 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     )
     res.status(200).json({ status: 'inserted' })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[INSERT ERROR]', err)
-    res.status(502).json({ error: 'Proxy request failed', details: err.message })
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    res.status(502).json({ error: 'Proxy request failed', details: message })
   }
 }
 
