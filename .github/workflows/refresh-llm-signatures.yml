@@ -13,7 +13,7 @@ jobs:
 
       - name: Download latest list
         run: |
-          curl -s https://momenticmarketing.com/api/ai-ua-list \
+          curl -fLs "https://raw.githubusercontent.com/${{ github.repository }}/main/signatures/llm.json" \
             > signatures/llm.json
 
       - name: Commit & push if changed
