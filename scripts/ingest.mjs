@@ -109,7 +109,7 @@ await consumer.run({
       const d = new Date(evt.ts);
       if (isNaN(d.getTime())) throw new Error('Invalid date');
       timestamp = d.toISOString().replace('T', ' ').split('.')[0];
-    } catch (err) {
+    } catch {
       console.error(`❌ Skipping invalid timestamp at offset ${message.offset}:`, evt.ts);
       return;
     }
