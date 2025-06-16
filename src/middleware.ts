@@ -42,16 +42,25 @@ export async function middleware(request: Request) {
   const postUrl = process.env.LAMBDA_PROXY_URL || 'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/';
 
   try {
-    const response = await fetch(postUrl, {
+    fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[MIDDLEWARE] ❌ POST failed with status", response.status, "→", text);
-    }
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text();
+          console.error(
+            "[MIDDLEWARE] ❌ POST failed with status",
+            res.status,
+            "→",
+            text
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("[MIDDLEWARE] ❌ POST to Lambda proxy failed:", err);
+      });
   } catch (err) {
     console.error("[MIDDLEWARE] ❌ POST to Lambda proxy failed:", err);
   }
