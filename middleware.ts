@@ -1,3 +1,4 @@
+/*  root/middleware.ts  – Edge runtime (Next 15+)  */
 import { NextResponse, type NextRequest } from 'next/server';
 
 /* ──────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ async function hashIp(ip: string): Promise<string> {
     new TextEncoder().encode(ip),
   );
   return [...new Uint8Array(hash)]
-    .map((b) => b.toString(16).padStart(2, '0'))
+    .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
@@ -39,12 +40,14 @@ export async function middleware(req: NextRequest) {
   const referer = req.headers.get('referer')      ?? '';
   const ipRaw   = (req.headers.get('x-forwarded-for') ?? '')
                     .split(',')[0].trim();
-
   const { hostname, pathname, search } = new URL(req.url);
 
+  /* 🔍 TEMP debug line – remove after confirming build */
+  console.log('[MW-DEBUG]', JSON.stringify({ build: '2025-06-17-08h45', ua: uaFull }));
+
   /* 3a. Detect LLM crawler */
-  const sig = LLM_SIGNATURES.find((s) => s.regex.test(uaFull));
-  if (!sig) return NextResponse.next();            // human / normal bot
+  const sig = LLM_SIGNATURES.find(s => s.regex.test(uaFull));
+  if (!sig) return NextResponse.next();            // not a crawler → pass through
 
   /* 3b. Optional version, e.g. “Claude/2.3” */
   const llmVersion = uaFull.match(/\/([\d.]+)/)?.[1] ?? '';
@@ -56,7 +59,7 @@ export async function middleware(req: NextRequest) {
     fullUrl     : req.url,
     path        : pathname + search,
     method      : req.method,
-    referrer    : referer,
+    referer,
     llmFamily   : sig.family,
     llmVersion,
     device_type : 'bot',
@@ -78,7 +81,7 @@ export async function middleware(req: NextRequest) {
     body   : JSON.stringify(payload),
   })
     .then(() => { payload.respMs = Date.now() - tSend; })
-    .catch((err) => console.error('[MW] Lambda POST error', err));
+    .catch(err => console.error('[MW] Lambda POST error', err));
 
   /* 3e. Continue to origin */
   const res = NextResponse.next();
@@ -92,5 +95,3 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/', '/((?!_next|favicon.ico).*)'],
 };
-
-
