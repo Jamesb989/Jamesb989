@@ -1,0 +1,10 @@
+name: one-hit
+on: workflow_dispatch
+jobs:
+  curl:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -A "Claude/3.0" \
+               "https://analytics.nudgefactor.co.uk/revolutionise-customer-acquisition?t=$(date +%s)" \
+               -o /dev/null
