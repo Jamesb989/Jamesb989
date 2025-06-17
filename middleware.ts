@@ -7,15 +7,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 type LlmSig = { family: string; regex: RegExp };
 
 const LLM_SIGNATURES: LlmSig[] = [
-  { family: 'Claude',     regex: /Claude(?:Bot)?/i },
-  { family: 'ChatGPT',    regex: /ChatGPT/i },
+  { family: 'Claude',     regex: /Claude(?:Bot)?(?:\/[\d.]+)?/i },
+  { family: 'ChatGPT',    regex: /ChatGPT|OpenAI\/|GPTBot/i },
   { family: 'Grok',       regex: /Grok/i },
   { family: 'Perplexity', regex: /Perplexity|pJsonScraper/i },
   { family: 'BingAI',     regex: /BingPreview|BingAI|Bingbot|MS Search|msnbot/i },
-  { family: 'Gemini',     regex: /Gemini|Google-Extended|Google-LLM/i },
+  { family: 'Gemini',     regex: /Google-Extended|Google-LLM|Gemini|GoogleAI/i },
   { family: 'Anthropic',  regex: /Anthropic/i },
   { family: 'GoogleAI',   regex: /Google-LLM|GoogleAI|GoogleBot/i },
-  { family: 'GenericAI',  regex: /\b(?:AI|Bot)\b/i },      // fallback
+  { family: 'GenericAI',  regex: /\b(?:AI|Bot)\b/i },          // fallback
 ];
 
 /* ───────────────────────────── 2. Hash helper ───────────────────────────── */
@@ -28,21 +28,25 @@ async function hashIp(ip: string): Promise<string> {
 /* ───────────────────────────── 3. Middleware ────────────────────────────── */
 export async function middleware(req: NextRequest) {
   /* 3-a. Basic request facts */
-  const t0        = Date.now();
-  const uaFull    = req.headers.get('user-agent')        ?? '';
-  const referrer  = req.headers.get('referer')           ?? '';
-  const ipRaw     = (req.headers.get('x-forwarded-for')  ?? '').split(',')[0].trim();
+  const uaFull   = req.headers.get('user-agent') ?? '';
+  const referrer = req.headers.get('referer')    ?? '';
+
+  /* Grab the last non-empty IP in X-Forwarded-For or fall back to req.ip */
+  const xfwd = (req.headers.get('x-forwarded-for') ?? '')
+                 .split(',').map(s => s.trim()).filter(Boolean);
+  const ipRaw = xfwd.reverse()[0] ?? '';
+
   const { hostname, pathname, search } = new URL(req.url);
 
   /* 3-b. Detect LLM */
   const sig = LLM_SIGNATURES.find(s => s.regex.test(uaFull));
-  if (!sig) return NextResponse.next();                   // not an LLM → skip
+  if (!sig) return NextResponse.next();             // not an LLM → skip
 
   const llmVersion = uaFull.match(/\/([\d.]+)/)?.[1] ?? '';
 
   /* 3-c. Compose payload */
   const payload = {
-    ts          : Math.floor(Date.now() / 1000),
+    ts          : Math.floor(Date.now() / 1000),    // epoch-seconds
     siteId      : hostname,
     fullUrl     : req.url,
     path        : pathname + search,
@@ -54,7 +58,7 @@ export async function middleware(req: NextRequest) {
     ip          : ipRaw,
     ipHash      : await hashIp(ipRaw),
     userAgent   : uaFull,
-    respMs      : 0,                      // filled after POST returns
+    respMs      : 0,                                // filled after POST
   };
 
   /* 3-d. Fire-and-forget to Lambda */
@@ -71,16 +75,20 @@ export async function middleware(req: NextRequest) {
     .then(() => { payload.respMs = Date.now() - tSend; })
     .catch(err => console.error('[MW] Lambda POST error', err));
 
+  /* Optional console debug (remove in prod) */
+  console.log('[MW] LLM hit →', sig.family, uaFull);
+
   /* 3-e. Continue on to your Next.js route */
   const res = NextResponse.next();
-  res.headers.set('x-llm-family', sig.family);            // surfacing for debug
+  res.headers.set('x-llm-family', sig.family);      // exposed for debugging
   return res;
 }
 
 /* ───────────────────────────── 4. Matcher ──────────────────────────────── */
 export const config = {
-  matcher: ['/', '/((?!_next|favicon\\.ico).*)'],          // root + every path
+  matcher: ['/', '/((?!_next|favicon\\.ico).*)'],   // root + every path
 };
+
 
 
 
