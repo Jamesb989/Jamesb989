@@ -1,0 +1,29 @@
+# ────────────────────────────────────────────────────────────
+# LLM Analytics smoke-test
+# Fires crawler-style requests to two landing pages from
+# GitHub’s ubuntu runner (typically US-East or EU-DE).
+# ────────────────────────────────────────────────────────────
+name: llm-hit
+
+on: workflow_dispatch           # run manually from the Actions tab
+
+jobs:
+  hit:
+    runs-on: ubuntu-latest      # GitHub-hosted runner (Linux → Bash)
+
+    # matrix = 2 pages × 2 user-agents  → 4 requests
+    strategy:
+      matrix:
+        page: [predictive-journey-mapping,
+               automated-customer-engagement]
+        ua:   [Claude/3.0, ChatGPT/1.0]
+
+    steps:
+      - name: Fire ${{ matrix.ua }} at /${{ matrix.page }}
+        shell: bash              # ensure Bash even if runner OS changes
+        run: |
+          ts=$(date +%s)
+          curl -A "${{ matrix.ua }}" \
+               "https://analytics.nudgefactor.co.uk/${{ matrix.page }}?t=$ts" \
+               -o /dev/null
+          echo "✓ sent → /${{ matrix.page }} • UA=${{ matrix.ua }}"
