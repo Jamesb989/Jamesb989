@@ -1,0 +1,39 @@
+name: multi-region-llm-hit
+on: workflow_dispatch         # run manually
+
+jobs:
+  github-runners:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]          # US or EU
+        page: [predictive-journey-mapping,
+               automated-customer-engagement]
+        ua:  [Claude/3.0, ChatGPT/1.0]
+    steps:
+      - name: Curl ${{ matrix.page }} from GH runner
+        run: |
+          curl -A "${{ matrix.ua }}" \
+               "https://analytics.nudgefactor.co.uk/${{ matrix.page }}?t=$(date +%s)" \
+               -o /dev/null
+          echo "✓ ${{ matrix.os }} → ${{ matrix.page }}"
+
+  fly-uk-sg:
+    needs: github-runners
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}   # create once in Fly dashboard
+    strategy:
+      matrix:
+        region: [lhr, sin]                         # lhr = London, sin = Singapore
+        page:   [predictive-journey-mapping,
+                  automated-customer-engagement]
+        ua:    [BingPreview/1.0]
+    steps:
+      - name: Fire curl from ${{ matrix.region }}
+        run: |
+          fly m run curl --region ${{ matrix.region }} -- \
+            -A "${{ matrix.ua }}" \
+            "https://analytics.nudgefactor.co.uk/${{ matrix.page }}?t=$(date +%s)" \
+            -o /dev/null
+          echo "✓ ${{ matrix.region }} → ${{ matrix.page }}"
