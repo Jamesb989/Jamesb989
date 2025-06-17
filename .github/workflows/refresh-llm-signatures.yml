@@ -11,10 +11,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download latest list
+      - name: Generate latest list from TypeScript
         run: |
-          curl -s https://momenticmarketing.com/api/ai-ua-list \
-            > signatures/llm.json
+          node - <<'EOF'
+          const fs = require('fs');
+          let ts = fs.readFileSync('signatures/llm.ts', 'utf8');
+          ts = ts
+            .replace(/^\/\/.*\n/, '')
+            .replace('export default ', '')
+            .replace(/satisfies.*;/, '')
+            .trim();
+          const obj = eval('(' + ts + ')');
+          const json = JSON.stringify(
+            obj,
+            (k, v) => (v instanceof RegExp ? v.source : v),
+            2
+          );
+          fs.writeFileSync('signatures/llm.json', json + '\n');
+          EOF
 
       - name: Commit & push if changed
         uses: EndBug/add-and-commit@v9
