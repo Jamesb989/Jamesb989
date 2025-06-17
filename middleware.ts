@@ -1,9 +1,9 @@
 /*  middleware.ts – Edge runtime (Next.js 15+)  */
-/*  Captures LLM crawler hits and ships them to Lambda ➜ ClickHouse  */
+/*  Logs every LLM crawler hit → AWS Lambda → ClickHouse.        */
 
 import { NextResponse, type NextRequest } from 'next/server';
 
-/* ───────────────────────────── 1. Signature map ─────────────────────────── */
+/* ────────────────────── 1 · Signature map ───────────────────── */
 type LlmSig = { family: string; regex: RegExp };
 
 const LLM_SIGNATURES: LlmSig[] = [
@@ -15,79 +15,89 @@ const LLM_SIGNATURES: LlmSig[] = [
   { family: 'Gemini',     regex: /Google-Extended|Google-LLM|Gemini|GoogleAI/i },
   { family: 'Anthropic',  regex: /Anthropic/i },
   { family: 'GoogleAI',   regex: /Google-LLM|GoogleAI|GoogleBot/i },
-  { family: 'GenericAI',  regex: /\b(?:AI|Bot)\b/i },          // fallback
+  { family: 'GenericAI',  regex: /\b(?:AI|Bot)\b/i },               // fallback
 ];
 
-/* ───────────────────────────── 2. Hash helper ───────────────────────────── */
-async function hashIp(ip: string): Promise<string> {
-  const raw = new TextEncoder().encode(ip);
-  const buf = await crypto.subtle.digest('SHA-256', raw);
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+/* ────────────────────── 2 · Hash helper ─────────────────────── */
+async function sha256Hex(input: string): Promise<string> {
+  const hash = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(input),
+  );
+  return [...new Uint8Array(hash)]
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-/* ───────────────────────────── 3. Middleware ────────────────────────────── */
+/* ────────────────────── 3 · Middleware ──────────────────────── */
 export async function middleware(req: NextRequest) {
-  /* 3-a. Basic request facts */
+  /* 3-a · basic facts */
   const uaFull   = req.headers.get('user-agent') ?? '';
   const referrer = req.headers.get('referer')    ?? '';
 
-  /* Grab the last non-empty IP in X-Forwarded-For or fall back to req.ip */
   const xfwd = (req.headers.get('x-forwarded-for') ?? '')
-                 .split(',').map(s => s.trim()).filter(Boolean);
-  const ipRaw = xfwd.reverse()[0] ?? '';
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const ipRaw = xfwd.at(-1) ?? '';
 
-  const { hostname, pathname, search } = new URL(req.url);
+  const url      = new URL(req.url);
+  const hostname = url.hostname;
+  const path     = url.pathname + url.search;          // keeps split-test qs
 
-  /* 3-b. Detect LLM */
+  /* 3-b · detect LLM */
   const sig = LLM_SIGNATURES.find(s => s.regex.test(uaFull));
-  if (!sig) return NextResponse.next();             // not an LLM → skip
+  if (!sig) return NextResponse.next();                // not an LLM
 
   const llmVersion = uaFull.match(/\/([\d.]+)/)?.[1] ?? '';
 
-  /* 3-c. Compose payload */
+  /* 3-c · payload */
   const payload = {
-    ts          : Math.floor(Date.now() / 1000),    // epoch-seconds
+    ts          : Math.floor(Date.now() / 1000),       // epoch-seconds
     siteId      : hostname,
     fullUrl     : req.url,
-    path        : pathname + search,
+    path,
     method      : req.method,
     referrer,
     llmFamily   : sig.family,
     llmVersion,
-    device_type : 'bot',
+    device_type : 0,                                   // Enum8('bot'=0,…)
     ip          : ipRaw,
-    ipHash      : await hashIp(ipRaw),
+    ipHash      : await sha256Hex(ipRaw),
     userAgent   : uaFull,
-    respMs      : 0,                                // filled after POST
+    respMs      : 0,
   };
 
-  /* 3-d. Fire-and-forget to Lambda */
+  /* 3-d · POST → Lambda (blocking) */
   const proxyURL =
-    process.env.LAMBDA_PROXY_URL ??
-    'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/';
+    (process.env.LAMBDA_PROXY_URL ??
+     'https://kbr5uzx2ugwjj2vrzkkjrgp5mm0fwkws.lambda-url.us-east-2.on.aws/') +
+    '?wait_for_async_insert=1';                        // guarantees commit
 
-  const tSend = Date.now();
-  fetch(proxyURL, {
-    method : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body   : JSON.stringify(payload),
-  })
-    .then(() => { payload.respMs = Date.now() - tSend; })
-    .catch(err => console.error('[MW] Lambda POST error', err));
+  try {
+    const t0   = Date.now();
+    const resp = await fetch(proxyURL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload),
+    });
+    payload.respMs = Date.now() - t0;
+    console.log('[MW] Lambda POST →', resp.status, resp.statusText);
+  } catch (err) {
+    console.error('[MW] Lambda POST error', (err as Error).message);
+  }
 
-  /* Optional console debug (remove in prod) */
-  console.log('[MW] LLM hit →', sig.family, uaFull);
-
-  /* 3-e. Continue on to your Next.js route */
+  /* 3-e · continue to next handler */
   const res = NextResponse.next();
-  res.headers.set('x-llm-family', sig.family);      // exposed for debugging
+  res.headers.set('x-llm-family', sig.family);         // debug helper
+  console.log('[MW] LLM hit →', sig.family, path);
   return res;
 }
 
-/* ───────────────────────────── 4. Matcher ──────────────────────────────── */
+/* ────────────────────── 4 · Matcher ─────────────────────────── */
 export const config = {
-  matcher: ['/', '/((?!_next|favicon\\.ico).*)'],   // root + every path
+  // all paths except _next/ & favicon.ico
+  matcher: ['/', '/((?!_next|favicon\\.ico).*)'],
 };
+
 
 
 
