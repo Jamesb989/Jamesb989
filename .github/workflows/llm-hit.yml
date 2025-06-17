@@ -1,0 +1,11 @@
+name: remote-curl
+on: workflow_dispatch   # manual trigger
+jobs:
+  hit:
+    runs-on: ubuntu-latest     # US/EU runner
+    steps:
+      - name: Curl Claude hit
+        run: |
+          curl -A "Claude/3.0" \
+               "https://analytics.nudgefactor.co.uk/predictive-journey-mapping?t=$(date +%s)" \
+               -o /dev/null -w "GitHub runner done\n"
