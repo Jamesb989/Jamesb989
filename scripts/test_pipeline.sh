@@ -10,8 +10,8 @@ CH_CLI="docker exec clickhouse-local clickhouse-client --user default --password
 
 for UA in "ChatGPT" "Claude/1.0" "BingAI/1.0" "Mozilla/5.0"; do
   echo "→ Testing UA: $UA"
-  # hit health-check
-  RESP=$(curl -s -A "$UA" "$HOST/api/health-check")
+  # hit root path so middleware runs
+  RESP=$(curl -s -A "$UA" "$HOST/")
   echo "  Response: $RESP"
   # fetch last row
   LAST=$($CH_CLI "SELECT llm_family, path FROM default.llm_hits ORDER BY ts DESC LIMIT 1;")
