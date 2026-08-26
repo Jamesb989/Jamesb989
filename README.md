@@ -2,6 +2,23 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Copy `.env.example` to `.env.production` and fill in values for your Kafka and
+ClickHouse credentials. The ingestion script (`scripts/ingest.mjs`) loads this
+file automatically when run.
+
+### Required variables
+
+```
+KAFKA_BROKER
+KAFKA_TOPIC
+KAFKA_USER
+KAFKA_PASS
+CLICKHOUSE_URL
+CLICKHOUSE_USER
+CLICKHOUSE_PASSWORD
+LAMBDA_PROXY_URL
+```
+
 First, run the development server:
 
 ```bash
