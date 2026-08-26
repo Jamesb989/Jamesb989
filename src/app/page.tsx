@@ -26,7 +26,7 @@ export default function AnalyticsHome() {
       </p>
       <p>
         <em>
-          All crawler hits are logged to Kafka&nbsp;→ ClickHouse for analysis.
+          All crawler hits are logged to Kafka{'\u00A0'}→ ClickHouse for analysis.
         </em>
       </p>
     </main>
