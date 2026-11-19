@@ -12,4 +12,4 @@ declare module '*.json' {
     const value: Record<string, LLMSignature>;
     export default value;
   }
-  
+
