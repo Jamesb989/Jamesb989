@@ -5,8 +5,10 @@
 
 HOST=${1:-http://localhost:3000}
 
-# Adjust these for your local ClickHouse creds:
-CH_CLI="docker exec clickhouse-local clickhouse-client --user default --password CqP0fqqmYD.2J --query"
+# Require ClickHouse credentials from the environment
+: "${CLICKHOUSE_USER:?CLICKHOUSE_USER not set}"
+: "${CLICKHOUSE_PASSWORD:?CLICKHOUSE_PASSWORD not set}"
+CH_CLI="docker exec clickhouse-local clickhouse-client --user ${CLICKHOUSE_USER} --password ${CLICKHOUSE_PASSWORD} --query"
 
 for UA in "ChatGPT" "Claude/1.0" "BingAI/1.0" "Mozilla/5.0"; do
   echo "→ Testing UA: $UA"
