@@ -1,1 +1,2 @@
 src/app/api/log-bot/route.ts
+pages/api/log-bot.ts
